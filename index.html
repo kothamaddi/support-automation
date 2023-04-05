@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Upload File to S3 and Get Matched Content from DynamoDB using Lambda</title>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
+</head>
+
+<body>
+    <h1>Upload File to S3 and Get Matched Content from DynamoDB using Lambda</h1>
+    <form id="upload-form">
+        <label for="file-input">Select a file to upload:</label>
+        <input type="file" id="file-input" accept=".txt">
+        <button type="submit">Upload File</button>
+    </form>
+    <div id="response"></div>
+    <script src="app.js"></script>
+</body>
+
+</html>
