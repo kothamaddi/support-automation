@@ -1,0 +1,16 @@
+/* Add this code to your CSS file */
+#progress-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+
+#progress-message {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+#progress-icon {
+  display: none;
+  width
