@@ -1,20 +1,75 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Upload File to S3 Bucket</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+        margin: 0;
+        padding: 0;
+      }
 
-<head>
-    <title>Upload File to S3 and Get Matched Content from DynamoDB using Lambda</title>
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
-</head>
+      .container {
+        width: 80%;
+        margin: 0 auto;
+        padding-top: 50px;
+      }
 
-<body>
-    <h1>Upload File to S3 and Get Matched Content from DynamoDB using Lambda</h1>
-    <form id="upload-form">
-        <label for="file-input">Select a file to upload:</label>
-        <input type="file" id="file-input" accept=".txt">
-        <button type="submit">Upload File</button>
-    </form>
-    <div id="response"></div>
+      .form-container {
+        background-color: white;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        padding: 20px;
+      }
+
+      input[type="file"] {
+        margin-top: 20px;
+        font-size: 16px;
+        padding: 10px;
+        border-radius: 5px;
+        border: none;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      }
+
+      .btn {
+        margin-top: 20px;
+        font-size: 16px;
+        padding: 10px 20px;
+        border-radius: 5px;
+        border: none;
+        background-color: #4CAF50;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      }
+
+      .btn:hover {
+        background-color: #3e8e41;
+      }
+
+      .response {
+        margin-top: 20px;
+        padding: 20px;
+        border-radius: 5px;
+        background-color: #d4edda;
+        color: #155724;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="form-container">
+        <form enctype="multipart/form-data">
+          <h2>Upload File to S3 Bucket</h2>
+          <input type="file" id="file-upload" name="file-upload">
+          <br>
+          <button class="btn" id="upload-btn" type="button">Upload</button>
+        </form>
+        <div id="response-container"></div>
+      </div>
+    </div>
     <script src="app.js"></script>
-</body>
-
+  </body>
 </html>
