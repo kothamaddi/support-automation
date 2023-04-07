@@ -1,69 +1,58 @@
 import boto3
+import re
+from googlesearch import search
+import openai_secret_manager
 
-# Create a DynamoDB resource object
-dynamodb = boto3.resource('dynamodb')
+def get_suggestion(query):
+    # Fetch OpenAI API key
+    secrets = openai_secret_manager.get_secret("openai")
+    openai_key = secrets["api_key"]
 
-# Name of the S3 bucket and file to read
-bucket_name = 'your-bucket-name'
-file_name = 'your-file-name'
+    # Use OpenAI GPT-3 API to generate suggestions
+    # Here's a dummy response since we don't have an API key
+    return ["This is a suggestion from OpenAI GPT-3 API"]
 
-# Get the last modified time of the file in S3
-s3 = boto3.client('s3')
-response = s3.head_object(Bucket=bucket_name, Key=file_name)
-last_modified = response['LastModified']
 
-# Read the file from S3
-file_obj = s3.get_object(Bucket=bucket_name, Key=file_name)
-file_lines = file_obj['Body'].read().decode('utf-8').splitlines()
+def lambda_handler(event, context):
+    s3 = boto3.client('s3')
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('error_lookup')
+    file_obj = event["Records"][0]
+    filename = str(file_obj['s3']['object']['key'])
+    bucket_name = 'cx-ssues'
 
-# Find the latest line with the keyword "error"
-latest_error_line = None
-for i, line in enumerate(reversed(file_lines)):
-    if 'error' in line.lower():
-        latest_error_line = line.strip()
-        error_line_index = len(file_lines) - i - 1
-        break
+    # Check if file uploaded is eb-engine.log
+    if filename == 'eb-engine.log':
+        # Read the contents of the file
+        file_content = s3.get_object(Bucket=bucket_name, Key=filename)['Body'].read().decode('utf-8')
 
-# If an error line was found, get the lines above and below the error line
-if latest_error_line:
-    above_error_lines = []
-    for line in file_lines[:error_line_index][::-1]:
-        above_error_lines.append(line)
-        if 'error' in line.lower():
-            break
+        # Find the latest error line
+        error_line = None
+        for line in reversed(file_content.split("\n")):
+            if 'ERROR' in line:
+                error_line = line.strip()
+                break
 
-    below_error_lines = []
-    for line in file_lines[error_line_index + 1:]:
-        below_error_lines.append(line)
-        if 'error' in line.lower():
-            break
+        # If an error line is found, search in DynamoDB for suggestions
+        if error_line:
+            keywords = re.findall(r'\b\w+\b', error_line)
+            suggestions = []
+            for i in range(len(keywords), 0, -1):
+                comb = [' '.join(keywords[j:j+i]) for j in range(len(keywords)-i+1)]
+                for keyword in comb:
+                    response = table.get_item(Key={'keyword': keyword})
+                    if 'Item' in response:
+                        suggestions.extend(response['Item']['suggestions'])
+            if suggestions:
+                return {'statusCode': 200, 'body': {'message': error_line, 'suggestions': suggestions}}
 
-    print(f"Latest error line: {latest_error_line}")
-    print(f"Above error lines: {above_error_lines}")
-    print(f"Below error lines: {below_error_lines}")
+        # If no suggestions found in DynamoDB, search using Google
+        query = error_line if error_line else 'eb-engine.log error'
+        suggestions = []
+        for result in search(query, num=5):
+            suggestions.append(result)
+        if suggestions:
+            return {'statusCode': 200, 'body': {'message': error_line, 'suggestions': suggestions}}
 
-    # Build a filter expression that matches any items in the DynamoDB table where
-    # the error message contains the latest error line, an above error line, or a below error line
-    filter_expression = (
-        'contains(#err_msg_attr, :latest_error_val) '
-        'OR contains(#err_msg_attr, :above_error_val) '
-        'OR contains(#err_msg_attr, :below_error_val)'
-    )
-    expression_attribute_names = {'#err_msg_attr': 'error_message'}
-    expression_attribute_values = {
-        ':latest_error_val': latest_error_line,
-        ':above_error_val': above_error_lines,
-        ':below_error_val': below_error_lines
-    }
-
-    table_name = 'your-dynamodb-table-name'
-    table = dynamodb.Table(table_name)
-    response = table.scan(
-        FilterExpression=filter_expression,
-        ExpressionAttributeNames=expression_attribute_names,
-        ExpressionAttributeValues=expression_attribute_values
-    )
-    matching_items = response['Items']
-    print(f"Matching items in DynamoDB: {matching_items}")
-else:
-    print("No error lines found in the file")
+    # If the uploaded file is not eb-engine.log, return an error message
+    return {'statusCode': 400, 'body': 'Invalid file type. Please upload an eb-engine.log file.'}
