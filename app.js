@@ -1,52 +1,81 @@
-const AWS = require('aws-sdk');
-const S3 = new AWS.S3({apiVersion: '2006-03-01'});
-const lambda = new AWS.Lambda({apiVersion: '2015-03-31'});
-const BUCKET_NAME = 'your-bucket-name';
+// AWS SDK configuration
+AWS.config.update({
+    region: "us-eat-2",
+});
 
-function uploadFile() {
-  const file = document.getElementById('file-input').files[0];
-  const fileName = file.name;
+// Lambda function name
+var lambdaFunctionName = "myfunction";
 
-  if (!fileName) {
-    alert('Please select a file to upload.');
-    return;
-  }
+// S3 bucket name
+var s3BucketName = "cx-ssues";
 
-  // Show loading spinner
-  document.getElementById('loading-spinner').style.display = 'block';
+// S3 object key prefix
+var s3ObjectKeyPrefix = "eb-engine.log";
 
-  // Upload file to S3 bucket
-  const params = {
-    Bucket: BUCKET_NAME,
-    Key: fileName,
-    Body: file
-  };
+// DynamoDB table name
+var dynamoDBTableName = "error_lookup";
 
-  S3.upload(params, function(err, data) {
-    if (err) {
-      alert('Error uploading file: ' + err);
-      return;
-    }
+// Get references to DOM elements
+var fileInput = document.getElementById("fileInput");
+var uploadButton = document.getElementById("uploadButton");
+var progressBar = document.getElementById("progressBar");
+var progress = document.getElementById("progress");
+var progressText = document.getElementById("progressText");
+var status = document.getElementById("status");
 
-    const payload = {
-      fileName: fileName
-    };
+// Add event listener to the upload button
+uploadButton.addEventListener("click", function () {
+    // Disable the upload button to prevent multiple uploads
+    uploadButton.disabled = true;
 
-    // Invoke Lambda function to process file
-    lambda.invoke({
-      FunctionName: 'your-lambda-function-name',
-      Payload: JSON.stringify(payload)
-    }, function(err, data) {
-      if (err) {
-        alert('Error invoking Lambda function: ' + err);
-        return;
-      }
+    // Show the progress bar
+    progressBar.style.display = "block";
 
-      // Show success message and hide loading spinner
-      document.getElementById('success-message').style.display = 'block';
-      document.getElementById('loading-spinner').style.display = 'none';
+    // Create an S3 object
+    var s3 = new AWS.S3({
+        params: { Bucket: s3BucketName },
     });
-  });
-}
 
-document.getElementById('upload-button').addEventListener('click', uploadFile);
+    // Set the S3 object key to the current timestamp
+    var timestamp = new Date().getTime();
+    var s3ObjectKey = s3ObjectKeyPrefix + "_" + timestamp;
+
+    // Upload the selected file to S3
+    var file = fileInput.files[0];
+    var params = { Key: s3ObjectKey, Body: file };
+    s3.upload(params)
+        .on("httpUploadProgress", function (evt) {
+            // Update the progress bar as the file uploads
+            var percentComplete = Math.round((evt.loaded / evt.total) * 100);
+            progress.style.width = percentComplete + "%";
+            progressText.innerText = percentComplete + "%";
+        })
+        .send(function (err, data) {
+            if (err) {
+                // Display an error message if the upload fails
+                status.innerText = "Error: " + err.message;
+            } else {
+                // Call the Lambda function to process the uploaded file
+                var lambda = new AWS.Lambda();
+                var params = {
+                    FunctionName: lambdaFunctionName,
+                    Payload: JSON.stringify({
+                        s3BucketName: s3BucketName,
+                        s3ObjectKey: s3ObjectKey,
+                        dynamoDBTableName: dynamoDBTableName,
+                    }),
+                };
+                lambda.invoke(params, function (err, data) {
+                    if (err) {
+                        // Display an error message if the Lambda function fails
+                        status.innerText = "Error: " + err.message;
+                    } else {
+                        // Display the response from the Lambda function
+                        var response = JSON.parse(data.Payload);
+                        status.innerHTML =
+                            "<h2>Results:</h2><p>" + response.message + "</p>";
+                    }
+                });
+            }
+        });
+});
