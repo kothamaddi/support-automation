@@ -1,77 +1,73 @@
-const express = require('express');
-const multer = require('multer');
+// AWS SDK dependencies
 const AWS = require('aws-sdk');
-const lambda = new AWS.Lambda();
 
-const app = express();
+// Configuration
+const bucketName = 'your-bucket-name';
+const region = 'your-region';
+const lambdaFunctionName = 'your-lambda-function-name';
 
-// Configure AWS SDK
-AWS.config.update({
-  accessKeyId: 'your_access_key',
-  secretAccessKey: 'your_secret_key',
-  region: 'your_region' // replace with your preferred region
-});
+// Get the S3 service object
+const s3 = new AWS.S3({ region });
 
-// Create an S3 client
-const s3 = new AWS.S3();
+// Get the Lambda service object
+const lambda = new AWS.Lambda({ region });
 
-// Configure multer middleware to handle file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10 MB file size limit
-  }
-});
+// Update the UI with the progress message
+function showProgressMessage() {
+  const progressMessage = document.getElementById('progress-message');
+  progressMessage.innerText = 'Uploading file and waiting for analysis...';
 
-// Define a POST route to handle file uploads
-app.post('/upload', upload.single('file'), function (req, res, next) {
-  const file = req.file;
+  const progressIcon = document.getElementById('progress-icon');
+  progressIcon.style.display = 'inline-block';
+}
 
-  if (!file) {
-    return res.status(400).send('No file selected');
-  }
+// Update the UI with the completion message
+function showCompletionMessage() {
+  const progressMessage = document.getElementById('progress-message');
+  progressMessage.innerText = 'File has been uploaded and analyzed.';
 
-  // Create a new S3 object
+  const progressIcon = document.getElementById('progress-icon');
+  progressIcon.style.display = 'none';
+}
+
+// Upload a file to S3
+function uploadFile() {
+  // Get the file from the file input element
+  const fileInput = document.getElementById('file-input');
+  const file = fileInput.files[0];
+
+  // Get a unique key for the object we're uploading
+  const key = `${Date.now()}-${file.name}`;
+
+  // Create the S3 object params
   const s3Params = {
-    Bucket: 'your_bucket_name', // replace with your S3 bucket name
-    Key: file.originalname,
-    Body: file.buffer,
-    ContentType: file.mimetype,
-    ACL: 'public-read'
+    Bucket: bucketName,
+    Key: key,
+    Body: file
   };
 
+  // Update the UI with the progress message
+  showProgressMessage();
+
   // Upload the file to S3
-  s3.upload(s3Params, function (err, data) {
+  s3.upload(s3Params, function(err, data) {
     if (err) {
-      console.log(err);
-      return res.status(500).send(err);
+      console.log('Error uploading file:', err);
+      return;
     }
 
-    // Invoke the Lambda function
+    console.log('File uploaded to S3:', data);
+
+    // Call the Lambda function to process the file
     const lambdaParams = {
-      FunctionName: 'your_lambda_function_name', // replace with your Lambda function name
-      InvocationType: 'RequestResponse',
-      Payload: JSON.stringify({
-        s3Bucket: s3Params.Bucket,
-        s3Key: s3Params.Key
-      })
+      FunctionName: lambdaFunctionName,
+      Payload: JSON.stringify({ bucket: bucketName, key })
     };
 
-    lambda.invoke(lambdaParams, function (err, data) {
+    lambda.invoke(lambdaParams, function(err, data) {
       if (err) {
-        console.log(err);
-        return res.status(500).send(err);
+        console.log('Error invoking Lambda function:', err);
+        return;
       }
 
-      // Parse the Lambda function response and display it on the UI
-      const response = JSON.parse(data.Payload);
-      $('#response').text(response);
-      res.send();
-    });
-  });
-});
-
-// Start the server
-app.listen(3000, function () {
-  console.log('App started on port 3000');
-});
+      console.log('Lambda function invoked:', data
