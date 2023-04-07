@@ -1,61 +1,65 @@
-// Set up AWS credentials
+const AWS = require('aws-sdk');
+const express = require('express');
+const bodyParser = require('body-parser');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+
+const app = express();
+
+// Configure AWS SDK
 AWS.config.update({
-	accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-	secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  accessKeyId: 'your_access_key',
+  secretAccessKey: 'your_secret_key',
+  region: 'us-east-1' // replace with your preferred region
 });
 
 // Create an S3 client
-const s3 = new AWS.S3({ apiVersion: '2006-03-01' });
+const s3 = new AWS.S3();
 
 // Create a Lambda client
-const lambda = new AWS.Lambda({ apiVersion: '2015-03-31' });
+const lambda = new AWS.Lambda();
 
-// Create a DynamoDB client
-const dynamodb = new AWS.DynamoDB({ apiVersion: '2012-08-10' });
+// Configure multer middleware to handle file uploads
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: 'your_s3_bucket',
+    acl: 'public-read', // or 'private'
+    key: function (req, file, cb) {
+      cb(null, file.originalname);
+    }
+  })
+});
 
-// Function to upload a file to S3
-function uploadFile() {
-	// Get the file input element
-	const fileInput = document.getElementById('fileInput');
+// Configure express middleware to handle JSON payloads
+app.use(bodyParser.json());
 
-	// Check if a file was selected
-	if (fileInput.files.length === 0) {
-		alert('Please select a file to upload.');
-		return;
-	}
+// Define a POST route to handle file uploads
+app.post('/upload', upload.single('file'), function (req, res, next) {
+  // Get the file URL from the request
+  const fileUrl = req.file.location;
 
-	// Get the file object
-	const file = fileInput.files[0];
+  // Create a payload for the Lambda function
+  const payload = {
+    fileUrl: fileUrl
+  };
 
-	// Set the S3 key based on the current date and time
-	const now = new Date();
-	const key = `uploads/${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}-${now.getTime()}_${file.name}`;
+  // Invoke the Lambda function
+  lambda.invoke({
+    FunctionName: 'your_lambda_function_name',
+    Payload: JSON.stringify(payload)
+  }, function (err, data) {
+    if (err) {
+      console.log(err);
+      res.status(500).send(err);
+    } else {
+      console.log(data);
+      res.send(data.Payload);
+    }
+  });
+});
 
-	// Upload the file to S3
-	s3.upload({
-		Bucket: 'my-bucket-name',
-		Key: key,
-		Body: file,
-		ContentType: file.type
-	}, function(err, data) {
-		if (err) {
-			console.log(err);
-			document.getElementById('response').innerHTML = 'Error uploading file to S3.';
-			return;
-		}
-
-		// Call the Lambda function to process the file
-		lambda.invoke({
-			FunctionName: 'my-lambda-function-name',
-			Payload: JSON.stringify({ key: key })
-		}, function(err, data) {
-			if (err) {
-				console.log(err);
-				document.getElementById('response').innerHTML = 'Error calling Lambda function.';
-				return;
-			}
-
-			// Get the response from the Lambda function
-			const response = JSON.parse(data.Payload);
-
-			// Get the matched content from DynamoDB
+// Start the server
+app.listen(3000, function () {
+  console.log('App started on port 3000');
+});
