@@ -1,112 +1,62 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-  <meta charset="UTF-8">
-  <title>Debugging Tool</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
-    integrity="sha512-WudfrlVl8WuvrEshvPnRJCr+7V1bdE2T9jzsaqwDRs+Nq06g/q8GwFXH7Wez6bJy+q94GJmTT9B9HKn6RlZsw=="
-    crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f2f2f2;
-    }
-
-    .container {
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-      background-color: #fff;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-      border-radius: 5px;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .upload-btn-wrapper {
-      position: relative;
-      overflow: hidden;
-      display: inline-block;
-    }
-
-    .btn {
-      display: inline-block;
-      background-color: #2196F3;
-      color: #fff;
-      padding: 8px 20px;
-      border-radius: 5px;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.2s ease-in-out;
-      border: none;
-      margin-top: 20px;
-    }
-
-    .btn:hover {
-      background-color: #0b7dda;
-    }
-
-    .upload-btn-wrapper input[type=file] {
-      font-size: 100px;
-      position: absolute;
-      left: 0;
-      top: 0;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    .loading {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    .loading-text {
-      font-size: 20px;
-      margin-bottom: 10px;
-      text-align: center;
-    }
-
-    .spinner {
-      font-size: 50px;
-      color: #2196F3;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      from {
-        transform: rotate(0deg);
-      }
-
-      to {
-        transform: rotate(360deg);
-      }
-    }
-  </style>
+	<title>Upload eb-engine.log file to S3 bucket</title>
+	<style>
+		h1 {
+			text-align: center;
+		}
+		form {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			margin-top: 50px;
+		}
+		button {
+			background-color: #4CAF50;
+			border: none;
+			color: white;
+			padding: 10px 20px;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			margin-top: 20px;
+			cursor: pointer;
+		}
+		#error-message {
+			margin-top: 50px;
+			padding: 20px;
+			background-color: #f44336;
+			color: white;
+			display: none;
+			text-align: center;
+		}
+		#success-message {
+			margin-top: 50px;
+			padding: 20px;
+			background-color: #4CAF50;
+			color: white;
+			display: none;
+			text-align: center;
+		}
+	</style>
 </head>
-
 <body>
-  <div class="container">
-    <h1>Debugging Tool</h1>
-    <div class="upload-btn-wrapper">
-      <button class="btn">Upload a file</button>
-      <input type="file" name="file" />
-    </div>
-  </div>
-  <div class="loading" style="display:none">
-    <div class="spinner"><i class="fas fa-spinner"></i></div>
-    <div class="loading-text">Analyzing logs, please wait...</div>
-  </div>
-  <script src="app.js"></script>
-</body>
+	<h1>Upload eb-engine.log file to S3 bucket</h1>
+	<form action="#" method="POST" enctype="multipart/form-data" id="upload-form">
+		<label for="fileInput">Choose a file:</label>
+		<input type="file" id="fileInput" name="fileInput">
+		<button type="submit" id="uploadButton">Upload</button>
+	</form>
+	<div id="progressBar" style="display:none;">
+		<div id="progress" style="height:20px; background-color:#DDD; width:0%;"></div>
+		<div id="progressText" style="margin-top:5px; text-align:center;">0%</div>
+	</div>
+	<div id="error-message"></div>
+	<div id="success-message"></div>
 
+	<script src="https://sdk.amazonaws.com/js/aws-sdk-2.844.0.min.js"></script>
+	<script src="app.js"></script>
+</body>
 </html>
