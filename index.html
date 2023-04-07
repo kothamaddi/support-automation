@@ -1,81 +1,112 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>Upload File to S3 Bucket</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f2f2f2;
-        margin: 0;
-        padding: 0;
+
+<head>
+  <meta charset="UTF-8">
+  <title>Debugging Tool</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+    integrity="sha512-WudfrlVl8WuvrEshvPnRJCr+7V1bdE2T9jzsaqwDRs+Nq06g/q8GwFXH7Wez6bJy+q94GJmTT9B9HKn6RlZsw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f2f2;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .upload-btn-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+
+    .btn {
+      display: inline-block;
+      background-color: #2196F3;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 5px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      border: none;
+      margin-top: 20px;
+    }
+
+    .btn:hover {
+      background-color: #0b7dda;
+    }
+
+    .upload-btn-wrapper input[type=file] {
+      font-size: 100px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .loading-text {
+      font-size: 20px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .spinner {
+      font-size: 50px;
+      color: #2196F3;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
       }
 
-      .container {
-        width: 80%;
-        margin: 0 auto;
-        padding-top: 50px;
+      to {
+        transform: rotate(360deg);
       }
+    }
+  </style>
+</head>
 
-      .form-container {
-        background-color: white;
-        border-radius: 5px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-        padding: 20px;
-      }
-
-      input[type="file"] {
-        margin-top: 20px;
-        font-size: 16px;
-        padding: 10px;
-        border-radius: 5px;
-        border: none;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-      }
-
-      .btn {
-        margin-top: 20px;
-        font-size: 16px;
-        padding: 10px 20px;
-        border-radius: 5px;
-        border: none;
-        background-color: #4CAF50;
-        color: white;
-        cursor: pointer;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-      }
-
-      .btn:hover {
-        background-color: #3e8e41;
-      }
-
-      .response {
-        margin-top: 20px;
-        padding: 20px;
-        border-radius: 5px;
-        background-color: #d4edda;
-        color: #155724;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="form-container">
-        <form enctype="multipart/form-data">
-          <h2>Upload File to S3 Bucket</h2>
-          <input type="file" id="file-upload" name="file-upload">
-          <br>
-          <button class="btn" id="upload-btn" type="button">Upload</button>
-        </form>
-        <div id="response-container"></div>
-      </div>
+<body>
+  <div class="container">
+    <h1>Debugging Tool</h1>
+    <div class="upload-btn-wrapper">
+      <button class="btn">Upload a file</button>
+      <input type="file" name="file" />
     </div>
-    <!-- Add this code to the body of your HTML file -->
-<div id="progress-container">
-  <div id="progress-message"></div>
-  <div id="progress-icon" class="lds-ring"><div></div><div></div><div></div><div></div></div>
-</div>
+  </div>
+  <div class="loading" style="display:none">
+    <div class="spinner"><i class="fas fa-spinner"></i></div>
+    <div class="loading-text">Analyzing logs, please wait...</div>
+  </div>
+  <script src="app.js"></script>
+</body>
 
-    <script src="app.js"></script>
-  </body>
 </html>
