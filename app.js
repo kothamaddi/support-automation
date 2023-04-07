@@ -1,66 +1,61 @@
-// Set up AWS SDK clients
-const s3 = new AWS.S3({
-    apiVersion: '2006-03-01',
-    region: ''
+// Set up AWS credentials
+AWS.config.update({
+	accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+	secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
 });
 
-const lambda = new AWS.Lambda({
-    apiVersion: '2015-03-31',
-    region: 'myfunction'
-});
+// Create an S3 client
+const s3 = new AWS.S3({ apiVersion: '2006-03-01' });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient({
-    apiVersion: '2012-08-10',
-    region: 'us-east-2'
-});
+// Create a Lambda client
+const lambda = new AWS.Lambda({ apiVersion: '2015-03-31' });
 
-// Set up constants for AWS resources
-const BUCKET_NAME = 'cx-ssues';
-const FUNCTION_NAME = 'myfunction';
-const TABLE_NAME = 'Error_Lookup';
+// Create a DynamoDB client
+const dynamodb = new AWS.DynamoDB({ apiVersion: '2012-08-10' });
 
-// Get the file input and upload form elements
-const fileInput = document.getElementById('file-input');
-const uploadForm = document.getElementById('upload-form');
+// Function to upload a file to S3
+function uploadFile() {
+	// Get the file input element
+	const fileInput = document.getElementById('fileInput');
 
-// Get the response element
-const responseDiv = document.getElementById('response');
+	// Check if a file was selected
+	if (fileInput.files.length === 0) {
+		alert('Please select a file to upload.');
+		return;
+	}
 
-// Add an event listener to the upload form to handle file uploads
-uploadForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
+	// Get the file object
+	const file = fileInput.files[0];
 
-    // Get the file object from the file input element
-    const file = fileInput.files[0];
+	// Set the S3 key based on the current date and time
+	const now = new Date();
+	const key = `uploads/${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}-${now.getTime()}_${file.name}`;
 
-    // Generate a unique filename for the uploaded file
-    const fileName = `${Date.now()}-${file.name}`;
+	// Upload the file to S3
+	s3.upload({
+		Bucket: 'my-bucket-name',
+		Key: key,
+		Body: file,
+		ContentType: file.type
+	}, function(err, data) {
+		if (err) {
+			console.log(err);
+			document.getElementById('response').innerHTML = 'Error uploading file to S3.';
+			return;
+		}
 
-    try {
-        // Upload the file to S3
-        await s3.putObject({
-            Bucket: BUCKET_NAME,
-            Key: fileName,
-            Body: file,
-            ACL: 'public-read'
-        }).promise();
+		// Call the Lambda function to process the file
+		lambda.invoke({
+			FunctionName: 'my-lambda-function-name',
+			Payload: JSON.stringify({ key: key })
+		}, function(err, data) {
+			if (err) {
+				console.log(err);
+				document.getElementById('response').innerHTML = 'Error calling Lambda function.';
+				return;
+			}
 
-        // Call the Lambda function to process the file and fetch matched content from the DynamoDB table
-        const lambdaResult = await lambda.invoke({
-            FunctionName: FUNCTION_NAME,
-            Payload: JSON.stringify({
-                fileName: fileName,
-                tableName: TABLE_NAME
-            })
-        }).promise();
+			// Get the response from the Lambda function
+			const response = JSON.parse(data.Payload);
 
-        // Parse the response from the Lambda function
-        const lambdaResponse = JSON.parse(lambdaResult.Payload);
-
-        // Display the response on the UI
-        responseDiv.innerHTML = `<p>Matched content: ${lambdaResponse.content}</p>`;
-    } catch (error) {
-        console.error(error);
-        responseDiv.innerHTML = `<p>Error: ${error.message}</p>`;
-    }
-});
+			// Get the matched content from DynamoDB
