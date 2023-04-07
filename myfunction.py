@@ -1,58 +1,67 @@
 import boto3
 import re
-from googlesearch import search
-import openai_secret_manager
+import requests
+from bs4 import BeautifulSoup
 
-def get_suggestion(query):
-    # Fetch OpenAI API key
-    secrets = openai_secret_manager.get_secret("openai")
-    openai_key = secrets["api_key"]
-
-    # Use OpenAI GPT-3 API to generate suggestions
-    # Here's a dummy response since we don't have an API key
-    return ["This is a suggestion from OpenAI GPT-3 API"]
-
+s3 = boto3.resource('s3', region_name='us-east-2')
+dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
+table = dynamodb.Table('error_lookup')
 
 def lambda_handler(event, context):
-    s3 = boto3.client('s3')
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('error_lookup')
-    file_obj = event["Records"][0]
-    filename = str(file_obj['s3']['object']['key'])
     bucket_name = 'cx-ssues'
+    file_key = event['Records'][0]['s3']['object']['key']
+    obj = s3.Object(bucket_name, file_key)
+    body = obj.get()['Body'].read().decode('utf-8')
 
-    # Check if file uploaded is eb-engine.log
-    if filename == 'eb-engine.log':
-        # Read the contents of the file
-        file_content = s3.get_object(Bucket=bucket_name, Key=filename)['Body'].read().decode('utf-8')
+    # Parse error keywords from the DynamoDB table
+    response = table.scan()
+    error_keywords = [x['keyword'] for x in response['Items']]
 
-        # Find the latest error line
-        error_line = None
-        for line in reversed(file_content.split("\n")):
-            if 'ERROR' in line:
-                error_line = line.strip()
+    # Find the latest error line in the log file
+    lines = body.splitlines()
+    error_lines = []
+    for line in reversed(lines):
+        for error in error_keywords:
+            if error in line:
+                error_lines.append(line)
                 break
+        if len(error_lines) > 0:
+            break
 
-        # If an error line is found, search in DynamoDB for suggestions
-        if error_line:
-            keywords = re.findall(r'\b\w+\b', error_line)
-            suggestions = []
-            for i in range(len(keywords), 0, -1):
-                comb = [' '.join(keywords[j:j+i]) for j in range(len(keywords)-i+1)]
-                for keyword in comb:
-                    response = table.get_item(Key={'keyword': keyword})
-                    if 'Item' in response:
-                        suggestions.extend(response['Item']['suggestions'])
-            if suggestions:
-                return {'statusCode': 200, 'body': {'message': error_line, 'suggestions': suggestions}}
-
-        # If no suggestions found in DynamoDB, search using Google
-        query = error_line if error_line else 'eb-engine.log error'
+    # If error lines are found, get suggestions from DynamoDB
+    if len(error_lines) > 0:
         suggestions = []
-        for result in search(query, num=5):
-            suggestions.append(result)
-        if suggestions:
-            return {'statusCode': 200, 'body': {'message': error_line, 'suggestions': suggestions}}
+        for line in error_lines:
+            response = table.get_item(
+                Key={
+                    'keyword': line.split(' ', 1)[0]
+                }
+            )
+            if 'Item' in response:
+                suggestions.extend(response['Item']['suggestions'])
+        if len(suggestions) > 0:
+            return {
+                'statusCode': 200,
+                'body': '\n'.join(suggestions)
+            }
 
-    # If the uploaded file is not eb-engine.log, return an error message
-    return {'statusCode': 400, 'body': 'Invalid file type. Please upload an eb-engine.log file.'}
+    # If no suggestions found in DynamoDB, get suggestions from Google
+    if len(error_lines) > 0:
+        error_message = error_lines[0]
+        query = error_message.split(' ', 1)[0]
+        url = f'https://www.google.com/search?q={query}'
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        suggestions = [suggestion.text for suggestion in soup.select('.BNeawe.s3v9rd.AP7Wnd')]
+        if len(suggestions) > 0:
+            return {
+                'statusCode': 200,
+                'body': '\n'.join(suggestions)
+            }
+
+    return {
+        'statusCode': 200,
+        'body': 'No suggestions found'
+    }
