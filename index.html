@@ -2,66 +2,91 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>File Upload</title>
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.931.0.min.js"></script>
+    <title>File Upload Example</title>
     <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f2f2f2;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        font-size: 24px;
+        text-align: center;
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      .custom-file-upload {
+        display: block;
+        width: 100%;
+        margin: 10px 0;
+        padding: 12px 20px;
+        color: #fff;
+        font-size: 16px;
+        font-weight: bold;
+        text-align: center;
+        text-decoration: none;
+        background-color: #3f51b5;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      .custom-file-upload:hover {
+        background-color: #1e2459;
+      }
+
       .progress {
-        height: 20px;
-        background-color: #f7f7f7;
-        border-radius: 4px;
-        margin-bottom: 20px;
+        width: 100%;
+        height: 30px;
+        margin: 10px 0;
+        background-color: #ddd;
+        border-radius: 15px;
         overflow: hidden;
       }
 
       .progress-bar {
-        float: left;
-        width: 0;
+        width: 0%;
         height: 100%;
-        font-size: 12px;
-        line-height: 20px;
-        color: #fff;
+        background-color: #3f51b5;
+        transition: width 0.3s ease;
+      }
+
+      #message {
         text-align: center;
-        background-color: #337ab7;
-        transition: width 0.6s ease;
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #3f51b5;
       }
     </style>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.7.16.min.js"></script>
   </head>
   <body>
-    <h1>File Upload</h1>
-    <form action="#" method="post" enctype="multipart/form-data">
-      <input type="file" name="file">
-      <input type="submit" value="Upload">
-    </form>
-
-    <div id="progress" class="progress">
-      <div id="progress-bar" class="progress-bar"></div>
+    <div class="container">
+      <h1>File Upload Example</h1>
+      <label for="fileUpload" class="custom-file-upload">Choose file</label>
+      <input type="file" id="fileUpload" onchange="handleFileSelect()">
+      <div class="progress">
+        <div class="progress-bar"></div>
+      </div>
+      <div id="message"></div>
     </div>
 
-    <script>
-      var progressBar = document.getElementById("progress-bar");
-      var form = document.querySelector("form");
-      form.addEventListener("submit", function(event) {
-        event.preventDefault();
-        var formData = new FormData(form);
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload", true);
-        xhr.upload.onprogress = function(event) {
-          if (event.lengthComputable) {
-            var percentComplete = Math.round((event.loaded / event.total) * 100);
-            progressBar.style.width = percentComplete + "%";
-            progressBar.innerHTML = percentComplete + "%";
-          }
-        };
-        xhr.onload = function() {
-          progressBar.style.width = "0%";
-          progressBar.innerHTML = "";
-          alert("File uploaded successfully. Please wait for error analysis.");
-        };
-        xhr.onerror = function() {
-          alert("Error uploading file. Please try again.");
-        };
-        xhr.send(formData);
-      });
-    </script>
+    <script src="app.js"></script>
   </body>
 </html>
