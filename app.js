@@ -1,81 +1,99 @@
-// AWS SDK configuration
-AWS.config.update({
-    region: "us-eat-2",
-});
+const AWS = require('aws-sdk');
+const fs = require('fs');
 
-// Lambda function name
-var lambdaFunctionName = "myfunction";
+// Create an S3 client
+const s3 = new AWS.S3();
 
-// S3 bucket name
-var s3BucketName = "cx-ssues";
+// Define the name of your S3 bucket and key for the uploaded file
+const bucketName = 'my-bucket';
+const keyName = 'my-file.txt';
 
-// S3 object key prefix
-var s3ObjectKeyPrefix = "eb-engine.log";
+// Define the name of your DynamoDB table and the name of the field to query
+const tableName = 'my-table';
+const fieldName = 'error_message';
 
-// DynamoDB table name
-var dynamoDBTableName = "error_lookup";
+// Define the keyword to search for in the file
+const keyword = 'error';
 
-// Get references to DOM elements
-var fileInput = document.getElementById("fileInput");
-var uploadButton = document.getElementById("uploadButton");
-var progressBar = document.getElementById("progressBar");
-var progress = document.getElementById("progress");
-var progressText = document.getElementById("progressText");
-var status = document.getElementById("status");
+// Read the contents of the file
+const fileContent = fs.readFileSync('my-file.txt', 'utf8');
 
-// Add event listener to the upload button
-uploadButton.addEventListener("click", function () {
-    // Disable the upload button to prevent multiple uploads
-    uploadButton.disabled = true;
+// Split the contents of the file into an array of lines
+const lines = fileContent.split('\n');
 
-    // Show the progress bar
-    progressBar.style.display = "block";
+// Find the latest line containing the keyword
+let matchingLine = null;
+for (let i = lines.length - 1; i >= 0; i--) {
+  if (lines[i].toLowerCase().includes(keyword)) {
+    matchingLine = lines[i];
+    break;
+  }
+}
 
-    // Create an S3 object
-    var s3 = new AWS.S3({
-        params: { Bucket: s3BucketName },
+// If a matching line was found, fetch related items from DynamoDB
+if (matchingLine) {
+  // Construct the query expression to search for matching items in DynamoDB
+  const expression = '#field = :value';
+  const attributeNames = { '#field': fieldName };
+  const attributeValues = { ':value': { S: matchingLine } };
+  const params = {
+    TableName: tableName,
+    KeyConditionExpression: expression,
+    ExpressionAttributeNames: attributeNames,
+    ExpressionAttributeValues: attributeValues
+  };
+
+  // Create a DynamoDB client
+  const dynamodb = new AWS.DynamoDB();
+
+  // Query the DynamoDB table for matching items
+  dynamodb.query(params, (err, data) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+
+    // Print the matching items
+    console.log('Matching items:');
+    data.Items.forEach((item) => {
+      console.log(item);
+    });
+  });
+} else {
+  console.log('No matching lines found in file');
+}
+
+// Upload the file to S3
+const uploadParams = { Bucket: bucketName, Key: keyName, Body: fileContent };
+
+s3.upload(uploadParams, (err, data) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log(`File uploaded to S3 at ${data.Location}`);
+
+  // Now that the file is uploaded, we can analyze it for errors
+  if (matchingLine) {
+    console.log(`Matching line: ${matchingLine}`);
+
+    // Print the 5 lines before the matching line
+    const startIndex = Math.max(0, lines.indexOf(matchingLine) - 5);
+    const beforeLines = lines.slice(startIndex, lines.indexOf(matchingLine));
+    console.log('Lines before:');
+    beforeLines.forEach((line) => {
+      console.log(line);
     });
 
-    // Set the S3 object key to the current timestamp
-    var timestamp = new Date().getTime();
-    var s3ObjectKey = s3ObjectKeyPrefix + "_" + timestamp;
-
-    // Upload the selected file to S3
-    var file = fileInput.files[0];
-    var params = { Key: s3ObjectKey, Body: file };
-    s3.upload(params)
-        .on("httpUploadProgress", function (evt) {
-            // Update the progress bar as the file uploads
-            var percentComplete = Math.round((evt.loaded / evt.total) * 100);
-            progress.style.width = percentComplete + "%";
-            progressText.innerText = percentComplete + "%";
-        })
-        .send(function (err, data) {
-            if (err) {
-                // Display an error message if the upload fails
-                status.innerText = "Error: " + err.message;
-            } else {
-                // Call the Lambda function to process the uploaded file
-                var lambda = new AWS.Lambda();
-                var params = {
-                    FunctionName: lambdaFunctionName,
-                    Payload: JSON.stringify({
-                        s3BucketName: s3BucketName,
-                        s3ObjectKey: s3ObjectKey,
-                        dynamoDBTableName: dynamoDBTableName,
-                    }),
-                };
-                lambda.invoke(params, function (err, data) {
-                    if (err) {
-                        // Display an error message if the Lambda function fails
-                        status.innerText = "Error: " + err.message;
-                    } else {
-                        // Display the response from the Lambda function
-                        var response = JSON.parse(data.Payload);
-                        status.innerHTML =
-                            "<h2>Results:</h2><p>" + response.message + "</p>";
-                    }
-                });
-            }
-        });
+    // Print the 5 lines after the matching line
+    const endIndex = Math.min(lines.length - 1, lines.indexOf(matchingLine) + 5);
+    const afterLines = lines.slice(lines.indexOf(matchingLine) + 1, endIndex + 1);
+    console.log('Lines after:');
+    afterLines.forEach((line) => {
+      console.log(line);
+    });
+  } else {
+    console.log('No matching lines found in file');
+  }
 });
