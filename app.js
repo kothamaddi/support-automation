@@ -1,33 +1,43 @@
-var s3 = new AWS.S3({
-    apiVersion: '2006-03-01',
-    region: 'your_s3_region'
+const express = require('express');
+const AWS = require('aws-sdk');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+
+const app = express();
+const s3 = new AWS.S3();
+
+// Configure AWS SDK
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
 });
 
-function handleFileSelect() {
-    var file = document.getElementById('fileUpload').files[0];
-    var filename = file.name;
+// Configure multer middleware for file uploads
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    acl: 'public-read',
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      cb(null, Date.now().toString() + '-' + file.originalname);
+    }
+  })
+});
 
-    var params = {
-        Bucket: 'your_bucket_name',
-        Key: filename,
-        ContentType: file.type,
-        ACL: 'public-read'
-    };
+// Define routes
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/index.html');
+});
 
-    var progressBar = document.getElementById('progressbar');
-    var message = document.getElementById('message');
+app.post('/upload', upload.single('file'), (req, res) => {
+  res.send('File uploaded successfully!');
+});
 
-    s3.upload(params, function (err, data) {
-        if (err) {
-            console.log(err);
-            message.innerHTML = 'Error uploading file: ' + err.message;
-        } else {
-            console.log(data);
-            message.innerHTML = 'File uploaded successfully';
-        }
-    })
-    .on('httpUploadProgress', function (progress) {
-        var uploaded = parseInt((progress.loaded * 100) / progress.total);
-        progressBar.value = uploaded;
-    });
-}
+// Start the server
+app.listen(process.env.PORT || 3000, () => {
+  console.log('Server listening on port 3000');
+});
