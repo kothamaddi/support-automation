@@ -1,62 +1,67 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<title>Upload eb-engine.log file to S3 bucket</title>
-	<style>
-		h1 {
-			text-align: center;
-		}
-		form {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			margin-top: 50px;
-		}
-		button {
-			background-color: #4CAF50;
-			border: none;
-			color: white;
-			padding: 10px 20px;
-			text-align: center;
-			text-decoration: none;
-			display: inline-block;
-			font-size: 16px;
-			margin-top: 20px;
-			cursor: pointer;
-		}
-		#error-message {
-			margin-top: 50px;
-			padding: 20px;
-			background-color: #f44336;
-			color: white;
-			display: none;
-			text-align: center;
-		}
-		#success-message {
-			margin-top: 50px;
-			padding: 20px;
-			background-color: #4CAF50;
-			color: white;
-			display: none;
-			text-align: center;
-		}
-	</style>
-</head>
-<body>
-	<h1>Upload eb-engine.log file to S3 bucket</h1>
-	<form action="#" method="POST" enctype="multipart/form-data" id="upload-form">
-		<label for="fileInput">Choose a file:</label>
-		<input type="file" id="fileInput" name="fileInput">
-		<button type="submit" id="uploadButton">Upload</button>
-	</form>
-	<div id="progressBar" style="display:none;">
-		<div id="progress" style="height:20px; background-color:#DDD; width:0%;"></div>
-		<div id="progressText" style="margin-top:5px; text-align:center;">0%</div>
-	</div>
-	<div id="error-message"></div>
-	<div id="success-message"></div>
+  <head>
+    <meta charset="UTF-8">
+    <title>File Upload</title>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.931.0.min.js"></script>
+    <style>
+      .progress {
+        height: 20px;
+        background-color: #f7f7f7;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        overflow: hidden;
+      }
 
-	<script src="https://sdk.amazonaws.com/js/aws-sdk-2.844.0.min.js"></script>
-	<script src="app.js"></script>
-</body>
+      .progress-bar {
+        float: left;
+        width: 0;
+        height: 100%;
+        font-size: 12px;
+        line-height: 20px;
+        color: #fff;
+        text-align: center;
+        background-color: #337ab7;
+        transition: width 0.6s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>File Upload</h1>
+    <form action="#" method="post" enctype="multipart/form-data">
+      <input type="file" name="file">
+      <input type="submit" value="Upload">
+    </form>
+
+    <div id="progress" class="progress">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+
+    <script>
+      var progressBar = document.getElementById("progress-bar");
+      var form = document.querySelector("form");
+      form.addEventListener("submit", function(event) {
+        event.preventDefault();
+        var formData = new FormData(form);
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/upload", true);
+        xhr.upload.onprogress = function(event) {
+          if (event.lengthComputable) {
+            var percentComplete = Math.round((event.loaded / event.total) * 100);
+            progressBar.style.width = percentComplete + "%";
+            progressBar.innerHTML = percentComplete + "%";
+          }
+        };
+        xhr.onload = function() {
+          progressBar.style.width = "0%";
+          progressBar.innerHTML = "";
+          alert("File uploaded successfully. Please wait for error analysis.");
+        };
+        xhr.onerror = function() {
+          alert("Error uploading file. Please try again.");
+        };
+        xhr.send(formData);
+      });
+    </script>
+  </body>
 </html>
